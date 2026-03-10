@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neuron-Based Learning for Building Good AI Agents</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    /* ── TOKENS ──────────────────────────────────────────────────────────── */
+    :root {
+      --bg:          #04040f;
+      --bg2:         #080820;
+      --bg3:         #0c0c2a;
+      --surface:     #0f0f2e;
+      --surface2:    #141440;
+      --border:      rgba(0,200,255,0.15);
+      --border2:     rgba(0,200,255,0.35);
+      --cyan:        #00e5ff;
+      --cyan-dim:    rgba(0,229,255,0.12);
+      --green:       #39ff14;
+      --green-dim:   rgba(57,255,20,0.12);
+      --amber:       #ffaa00;
+      --amber-dim:   rgba(255,170,0,0.12);
+      --pink:        #ff6ec7;
+      --pink-dim:    rgba(255,110,199,0.12);
+      --red:         #ff3131;
+      --purple:      #bf5fff;
+      --purple-dim:  rgba(191,95,255,0.12);
+      --text:        #d0d8ff;
+      --text-muted:  #6670aa;
+      --text-bright: #ffffff;
+      --font-display:'Orbitron', sans-serif;
+      --font-body:   'Rajdhani', sans-serif;
+      --font-mono:   'Share Tech Mono', monospace;
+      --glow-cyan:   0 0 20px rgba(0,229,255,0.5), 0 0 60px rgba(0,229,255,0.2);
+      --glow-green:  0 0 20px rgba(57,255,20,0.5), 0 0 60px rgba(57,255,20,0.2);
+      --glow-amber:  0 0 20px rgba(255,170,0,0.5), 0 0 60px rgba(255,170,0,0.2);
+    }
+
+    /* ── RESET ───────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      cursor: crosshair;
+    }
+    a { color: inherit; text-decoration: none; }
+    ::selection { background: rgba(0,229,255,0.25); color: #fff; }
+
+    /* ── SCROLLBAR ───────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--cyan); border-radius: 2px; }
+
+    /* ── NOISE OVERLAY ───────────────────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 9999; opacity: 0.4;
+    }
+
+    /* ── NEURAL CANVAS (hero bg) ─────────────────────────────────────────── */
+    #neural-canvas {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none; z-index: 0;
+      opacity: 0.35;
+    }
+
+    /* ── NAV ─────────────────────────────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 2.5rem;
+      background: rgba(4,4,15,0.7);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      transition: all 0.3s ease;
+    }
+    nav.scrolled { background: rgba(4,4,15,0.95); }
+    .nav-logo {
+      font-family: var(--font-display);
+      font-size: 0.75rem; font-weight: 700;
+      color: var(--cyan);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+    .nav-logo span { color: var(--text-muted); }
+    .nav-links { display: flex; gap: 2rem; }
+    .nav-links a {
+      font-family: var(--font-mono);
+      font-size: 0.7rem; letter-spacing: 0.1em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--cyan); }
+
+    /* ── HERO ────────────────────────────────────────────────────────────── */
+    #hero {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+      padding: 6rem 2rem 4rem;
+      overflow: hidden;
+    }
+    .hero-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.72rem; letter-spacing: 0.3em;
+      color: var(--cyan); text-transform: uppercase;
+      margin-bottom: 1.5rem;
+      opacity: 0; animation: fadeUp 0.8s 0.2s forwards;
+    }
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 5vw, 4rem);
+      font-weight: 900; line-height: 1.05;
+      letter-spacing: -0.02em;
+      color: var(--text-bright);
+      margin-bottom: 1.5rem;
+      opacity: 0; animation: fadeUp 0.8s 0.4s forwards;
+    }
+    .hero-title .accent { color: var(--cyan); }
+    .hero-title .accent2 { color: var(--green); }
+    .hero-subtitle {
+      font-size: 1.15rem; font-weight: 400;
+      color: var(--text-muted); max-width: 620px;
+      margin: 0 auto 3rem;
+      opacity: 0; animation: fadeUp 0.8s 0.6s forwards;
+    }
+    .hero-cta-group {
+      display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;
+      opacity: 0; animation: fadeUp 0.8s 0.8s forwards;
+    }
+    .btn-primary {
+      font-family: var(--font-display);
+      font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      padding: 0.9rem 2.2rem;
+      background: var(--cyan);
+      color: var(--bg);
+      border: none; border-radius: 2px;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: var(--glow-cyan);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(0,229,255,0.7); }
+    .btn-outline {
+      font-family: var(--font-display);
+      font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      padding: 0.9rem 2.2rem;
+      background: transparent;
+      color: var(--cyan);
+      border: 1px solid var(--border2);
+      border-radius: 2px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-outline:hover { background: var(--cyan-dim); border-color: var(--cyan); }
+
+    /* Hero stats bar */
+    .hero-stats {
+      display: flex; gap: 3rem; margin-top: 4rem;
+      opacity: 0; animation: fadeUp 0.8s 1s forwards;
+    }
+    .stat { text-align: center; }
+    .stat-num {
+      font-family: var(--font-display);
+      font-size: 1.8rem; font-weight: 900;
+      color: var(--cyan);
+    }
+    .stat-label {
+      font-family: var(--font-mono);
+      font-size: 0.65rem; letter-spacing: 0.15em;
+      color: var(--text-muted); text-transform: uppercase;
+    }
+
+    /* Scroll indicator */
+    .scroll-hint {
+      position: absolute; bottom: 2rem;
+      font-family: var(--font-mono); font-size: 0.65rem;
+      color: var(--text-muted); letter-spacing: 0.2em;
+      text-transform: uppercase;
+      display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+      animation: pulse-opacity 2s infinite;
+    }
+    .scroll-hint::after {
+      content: ''; width: 1px; height: 40px;
+      background: linear-gradient(to bottom, var(--cyan), transparent);
+      animation: scrollLine 2s infinite;
+    }
+    @keyframes scrollLine {
+      0% { transform: scaleY(0); transform-origin: top; }
+      50% { transform: scaleY(1); transform-origin: top; }
+      51% { transform: scaleY(1); transform-origin: bottom; }
+      100% { transform: scaleY(0); transform-origin: bottom; }
+    }
+    @keyframes pulse-opacity { 0%,100%{opacity:0.4} 50%{opacity:1} }
+
+    /* ── SECTION WRAPPER ─────────────────────────────────────────────────── */
+    .section {
+      position: relative; z-index: 1;
+      padding: 6rem 2rem;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 0.68rem; letter-spacing: 0.3em;
+      color: var(--cyan); text-transform: uppercase;
+      margin-bottom: 0.75rem;
+    }
+    .section-title {
+      font-family: var(--font-display);
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+      font-weight: 700; color: var(--text-bright);
+      margin-bottom: 1rem;
+    }
+    .section-desc {
+      font-size: 1.05rem; color: var(--text-muted);
+      max-width: 600px; margin-bottom: 3rem;
+    }
+
+    /* ── DIVIDER ─────────────────────────────────────────────────────────── */
+    .divider {
+      width: 100%; height: 1px;
+      background: linear-gradient(to right, transparent, var(--border2), transparent);
+      margin: 0;
+    }
+
+    /* ── FIVE ZONES ──────────────────────────────────────────────────────── */
+    #zones { background: var(--bg2); }
+    .zones-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+    }
+    .zone-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1.75rem 1.5rem;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      position: relative; overflow: hidden;
+    }
+    .zone-card::before {
+      content: '';
+      position: absolute; inset: 0;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .zone-card:hover { transform: translateY(-6px); border-color: var(--zone-color, var(--cyan)); }
+    .zone-card:hover::before { opacity: 1; }
+    .zone-card[data-color="cyan"]  { --zone-color: var(--cyan);   }
+    .zone-card[data-color="cyan"]::before  { background: var(--cyan-dim); }
+    .zone-card[data-color="amber"] { --zone-color: var(--amber);  }
+    .zone-card[data-color="amber"]::before { background: var(--amber-dim); }
+    .zone-card[data-color="green"] { --zone-color: var(--green);  }
+    .zone-card[data-color="green"]::before { background: var(--green-dim); }
+    .zone-card[data-color="purple"]{ --zone-color: var(--purple); }
+    .zone-card[data-color="purple"]::before{ background: var(--purple-dim); }
+    .zone-card[data-color="pink"]  { --zone-color: var(--pink);   }
+    .zone-card[data-color="pink"]::before  { background: var(--pink-dim); }
+    .zone-icon {
+      font-size: 1.8rem; margin-bottom: 1rem;
+      filter: drop-shadow(0 0 8px var(--zone-color, var(--cyan)));
+    }
+    .zone-name {
+      font-family: var(--font-display);
+      font-size: 0.75rem; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--zone-color, var(--cyan));
+      margin-bottom: 0.5rem;
+    }
+    .zone-location {
+      font-family: var(--font-mono);
+      font-size: 0.65rem; color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+    .zone-desc { font-size: 0.9rem; color: var(--text); line-height: 1.5; }
+
+    /* ── POLICY NETWORK VISUALIZER ───────────────────────────────────────── */
+    #network { background: var(--bg3); }
+    .network-wrapper {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 3rem; align-items: start;
+    }
+    #network-canvas-wrap {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      aspect-ratio: 16/9;
+    }
+    #network-canvas { width: 100%; height: 100%; display: block; }
+    .network-info { display: flex; flex-direction: column; gap: 1.5rem; }
+    .layer-info {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px; padding: 1.25rem;
+      border-left: 3px solid var(--cyan);
+      transition: all 0.3s;
+    }
+    .layer-info.active { border-left-color: var(--green); background: var(--green-dim); }
+    .layer-title {
+      font-family: var(--font-display);
+      font-size: 0.72rem; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--cyan); margin-bottom: 0.4rem;
+    }
+    .layer-info.active .layer-title { color: var(--green); }
+    .layer-desc { font-size: 0.88rem; color: var(--text-muted); }
+    .layer-badge {
+      display: inline-block;
+      font-family: var(--font-mono); font-size: 0.6rem;
+      padding: 0.15rem 0.5rem;
+      background: var(--cyan-dim); color: var(--cyan);
+      border: 1px solid rgba(0,229,255,0.3);
+      border-radius: 2px; margin-top: 0.5rem;
+    }
+
+    /* ── 8 PHASES EXPLORER ───────────────────────────────────────────────── */
+    #phases { background: var(--bg2); }
+    .phases-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 2rem; align-items: start;
+    }
+    .phases-nav {
+      position: sticky; top: 5rem;
+      display: flex; flex-direction: column; gap: 0.5rem;
+    }
+    .phase-btn {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.9rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px; cursor: pointer;
+      transition: all 0.25s;
+      text-align: left;
+    }
+    .phase-btn:hover { border-color: var(--border2); background: var(--surface2); }
+    .phase-btn.active {
+      border-color: var(--phase-color, var(--cyan));
+      background: rgba(0,229,255,0.08);
+      box-shadow: inset 3px 0 0 var(--phase-color, var(--cyan));
+    }
+    .phase-num {
+      font-family: var(--font-display);
+      font-size: 0.65rem; font-weight: 900;
+      color: var(--phase-color, var(--cyan));
+      min-width: 1.5rem;
+    }
+    .phase-btn-label {
+      font-family: var(--font-mono);
+      font-size: 0.68rem; letter-spacing: 0.05em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+    .phase-btn.active .phase-btn-label { color: var(--text-bright); }
+
+    .phase-content { min-height: 500px; }
+    .phase-panel {
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+    .phase-panel.active { display: block; }
+    .phase-header {
+      display: flex; align-items: center; gap: 1rem;
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .phase-icon-big {
+      width: 60px; height: 60px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem;
+      border: 2px solid var(--panel-color, var(--cyan));
+      box-shadow: 0 0 20px var(--panel-color, var(--cyan));
+      flex-shrink: 0;
+    }
+    .phase-panel-title {
+      font-family: var(--font-display);
+      font-size: 1.4rem; font-weight: 700;
+      color: var(--text-bright);
+    }
+    .phase-panel-subtitle {
+      font-family: var(--font-mono);
+      font-size: 0.7rem; letter-spacing: 0.1em;
+      color: var(--panel-color, var(--cyan));
+      text-transform: uppercase;
+    }
+    .phase-body { font-size: 1rem; color: var(--text); line-height: 1.75; }
+    .phase-body p { margin-bottom: 1.25rem; max-width: 70ch; }
+    .phase-body strong { color: var(--text-bright); }
+    .phase-callout {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--panel-color, var(--cyan));
+      border-radius: 4px; padding: 1.25rem 1.5rem;
+      margin: 1.5rem 0;
+      font-size: 0.95rem;
+    }
+    .phase-callout-label {
+      font-family: var(--font-mono);
+      font-size: 0.65rem; letter-spacing: 0.15em;
+      color: var(--panel-color, var(--cyan));
+      text-transform: uppercase; margin-bottom: 0.5rem;
+    }
+    .phase-formula {
+      font-family: var(--font-mono);
+      font-size: 0.9rem; color: var(--amber);
+      background: rgba(255,170,0,0.08);
+      border: 1px solid rgba(255,170,0,0.2);
+      border-radius: 4px; padding: 0.75rem 1rem;
+      margin: 1rem 0; display: inline-block;
+    }
+    .phase-tags {
+      display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.5rem;
+    }
+    .tag {
+      font-family: var(--font-mono); font-size: 0.65rem;
+      padding: 0.3rem 0.75rem;
+      border: 1px solid var(--border2);
+      border-radius: 2px; color: var(--text-muted);
+      letter-spacing: 0.08em;
+    }
+
+    /* ── LIVE Q/LOSS CHART ───────────────────────────────────────────────── */
+    #chart-section { background: var(--bg3); }
+    .chart-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;
+    }
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px; padding: 1.5rem;
+    }
+    .chart-title {
+      font-family: var(--font-display);
+      font-size: 0.75rem; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+    .chart-title.cyan { color: var(--cyan); }
+    .chart-title.red  { color: var(--red); }
+    .chart-canvas-wrap {
+      position: relative; height: 180px;
+      border-bottom: 1px solid var(--border);
+      border-left: 1px solid var(--border);
+    }
+    canvas.chart { width: 100%; height: 100%; display: block; }
+    .chart-legend {
+      display: flex; gap: 1.5rem; margin-top: 0.75rem;
+    }
+    .legend-item {
+      display: flex; align-items: center; gap: 0.4rem;
+      font-family: var(--font-mono); font-size: 0.65rem;
+      color: var(--text-muted); letter-spacing: 0.05em;
+    }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+    /* ── THREE PILLARS ───────────────────────────────────────────────────── */
+    #pillars { background: var(--bg2); }
+    .pillars-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem;
+    }
+    .pillar-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px; padding: 2rem 1.75rem;
+      position: relative; overflow: hidden;
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .pillar-card:hover { transform: translateY(-8px); }
+    .pillar-card::after {
+      content: '';
+      position: absolute; bottom: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .pillar-card:nth-child(1)::after { background: var(--green); box-shadow: var(--glow-green); }
+    .pillar-card:nth-child(2)::after { background: var(--purple); }
+    .pillar-card:nth-child(3)::after { background: var(--amber); box-shadow: var(--glow-amber); }
+    .pillar-num {
+      font-family: var(--font-display);
+      font-size: 3rem; font-weight: 900;
+      opacity: 0.06; position: absolute;
+      top: 1rem; right: 1.5rem;
+      color: var(--text-bright);
+    }
+    .pillar-icon { font-size: 2rem; margin-bottom: 1rem; }
+    .pillar-title {
+      font-family: var(--font-display);
+      font-size: 0.9rem; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--text-bright); margin-bottom: 0.75rem;
+    }
+    .pillar-desc { font-size: 0.95rem; color: var(--text-muted); line-height: 1.65; }
+    .pillar-risk {
+      margin-top: 1rem; padding: 0.6rem 0.9rem;
+      background: rgba(255,49,49,0.08);
+      border: 1px solid rgba(255,49,49,0.2);
+      border-radius: 3px;
+      font-family: var(--font-mono); font-size: 0.65rem;
+      color: var(--red); letter-spacing: 0.05em;
+    }
+    .pillar-risk::before { content: '⚠ RISK: '; }
+
+    /* ── GLOSSARY ────────────────────────────────────────────────────────── */
+    #glossary { background: var(--bg3); }
+    .glossary-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+    .glossary-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px; padding: 1.25rem;
+      transition: border-color 0.2s;
+    }
+    .glossary-item:hover { border-color: var(--border2); }
+    .glossary-term {
+      font-family: var(--font-mono); font-size: 0.8rem;
+      color: var(--cyan); margin-bottom: 0.4rem;
+      letter-spacing: 0.05em;
+    }
+    .glossary-def { font-size: 0.88rem; color: var(--text-muted); line-height: 1.5; }
+
+    /* ── FOOTER ──────────────────────────────────────────────────────────── */
+    footer {
+      position: relative; z-index: 1;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 2.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .footer-brand {
+      font-family: var(--font-display);
+      font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.15em; color: var(--cyan);
+    }
+    .footer-credit {
+      font-family: var(--font-mono); font-size: 0.65rem;
+      color: var(--text-muted); letter-spacing: 0.08em;
+    }
+
+    /* ── KEYFRAMES ───────────────────────────────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes neuronPulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(0,229,255,0.4); }
+      50%      { box-shadow: 0 0 0 8px rgba(0,229,255,0); }
+    }
+
+    /* ── SCROLL REVEAL ───────────────────────────────────────────────────── */
+    [data-animate] {
+      opacity: 0; transform: translateY(28px);
+      transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    [data-animate="slide-left"]  { transform: translateX(-28px); }
+    [data-animate="slide-right"] { transform: translateX(28px); }
+    [data-animate].visible { opacity: 1; transform: none; }
+
+    /* ── PROGRESS BAR ────────────────────────────────────────────────────── */
+    #progress-bar {
+      position: fixed; top: 0; left: 0; height: 2px;
+      background: linear-gradient(to right, var(--cyan), var(--green));
+      z-index: 200; transition: width 0.1s;
+      box-shadow: var(--glow-cyan);
+    }
+
+    /* ── RESPONSIVE ──────────────────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .network-wrapper { grid-template-columns: 1fr; }
+      .phases-layout   { grid-template-columns: 1fr; }
+      .phases-nav      { position: static; flex-direction: row; flex-wrap: wrap; }
+      .chart-grid      { grid-template-columns: 1fr; }
+      .pillars-grid    { grid-template-columns: 1fr; }
+      .hero-stats      { gap: 1.5rem; }
+      nav              { padding: 1rem 1.5rem; }
+      .nav-links       { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+      [data-animate] { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Progress bar -->
+<div id="progress-bar" style="width:0%"></div>
+
+<!-- Neural canvas background -->
+<canvas id="neural-canvas"></canvas>
+
+<!-- ── NAV ──────────────────────────────────────────────────────────────── -->
+<nav id="main-nav">
+  <div class="nav-logo">AI<span>/</span>AGENT &nbsp;LEARNING</div>
+  <div class="nav-links">
+    <a href="#zones">Zones</a>
+    <a href="#network">Network</a>
+    <a href="#phases">Phases</a>
+    <a href="#pillars">Pillars</a>
+    <a href="#glossary">Glossary</a>
+  </div>
+</nav>
+
+<!-- ── HERO ─────────────────────────────────────────────────────────────── -->
+<section id="hero">
+  <p class="hero-eyebrow">Interactive Walkthrough &nbsp;·&nbsp; Reinforcement Learning</p>
+  <h1 class="hero-title">
+    Neuron-Based Learning<br>
+    for Building <span class="accent">Good</span> <span class="accent2">AI Agents</span>
+  </h1>
+  <p class="hero-subtitle">
+    An interactive deep-dive into how AI agents perceive, act, remember, and improve —
+    from raw neurons to converging intelligence.
+  </p>
+  <div class="hero-cta-group">
+    <a href="#phases" class="btn-primary">Explore the 8 Phases</a>
+    <a href="#zones" class="btn-outline">View Architecture</a>
+  </div>
+  <div class="hero-stats">
+    <div class="stat"><div class="stat-num">8</div><div class="stat-label">Learning Phases</div></div>
+    <div class="stat"><div class="stat-num">5</div><div class="stat-label">System Zones</div></div>
+    <div class="stat"><div class="stat-num">3</div><div class="stat-label">Core Pillars</div></div>
+    <div class="stat"><div class="stat-num">∞</div><div class="stat-label">Episodes</div></div>
+  </div>
+  <div class="scroll-hint">scroll</div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── FIVE ZONES ────────────────────────────────────────────────────────── -->
+<section id="zones" class="section">
+  <div class="container">
+    <p class="section-label" data-animate>Architecture Overview</p>
+    <h2 class="section-title" data-animate>The Five System Zones</h2>
+    <p class="section-desc" data-animate>Every AI agent system is composed of five interconnected components. None works in isolation — the magic is making all five work in harmony.</p>
+    <div class="zones-grid">
+      <div class="zone-card" data-color="cyan" data-animate>
+        <div class="zone-icon">🧠</div>
+        <div class="zone-name">Policy Network</div>
+        <div class="zone-location">Centre-Left</div>
+        <div class="zone-desc">The agent's brain — a neural network with Perception, Hidden, and Action layers that maps states to actions.</div>
+      </div>
+      <div class="zone-card" data-color="amber" data-animate>
+        <div class="zone-icon">🌍</div>
+        <div class="zone-name">Environment</div>
+        <div class="zone-location">Centre-Right</div>
+        <div class="zone-desc">The world the agent operates in. Provides observations (states) and responds to actions with new states.</div>
+      </div>
+      <div class="zone-card" data-color="green" data-animate>
+        <div class="zone-icon">⚡</div>
+        <div class="zone-name">Reward Signal</div>
+        <div class="zone-location">Top-Right</div>
+        <div class="zone-desc">The scoring system that tells the agent how good or bad its action was. The most powerful — and dangerous — component.</div>
+      </div>
+      <div class="zone-card" data-color="purple" data-animate>
+        <div class="zone-icon">💾</div>
+        <div class="zone-name">Memory / Replay Buffer</div>
+        <div class="zone-location">Bottom-Centre</div>
+        <div class="zone-desc">Stores past (state, action, reward, next_state) tuples. Enables learning from experience and breaks training correlations.</div>
+      </div>
+      <div class="zone-card" data-color="pink" data-animate>
+        <div class="zone-icon">📈</div>
+        <div class="zone-name">Q-Value / Loss Curve</div>
+        <div class="zone-location">Top-Left</div>
+        <div class="zone-desc">A live graph showing learning progress. Q-values rise as the agent improves; loss falls as predictions become accurate.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── POLICY NETWORK ─────────────────────────────────────────────────────── -->
+<section id="network" class="section">
+  <div class="container">
+    <p class="section-label" data-animate>Interactive Visualizer</p>
+    <h2 class="section-title" data-animate>The Policy Network</h2>
+    <p class="section-desc" data-animate>Click any layer to inspect it. Watch neurons fire as signals propagate forward through the network.</p>
+    <div class="network-wrapper">
+      <div id="network-canvas-wrap" data-animate="scale">
+        <canvas id="network-canvas"></canvas>
+      </div>
+      <div class="network-info" data-animate="slide-right">
+        <div class="layer-info" id="li-0">
+          <div class="layer-title">Layer 1 — Perception Neurons</div>
+          <div class="layer-desc">Receive raw input from the environment: pixels, sensor readings, text tokens, or structured data. The entry point of all information.</div>
+          <span class="layer-badge">Input Layer · 4 neurons</span>
+        </div>
+        <div class="layer-info" id="li-1">
+          <div class="layer-title">Layer 2 — Hidden Layer</div>
+          <div class="layer-desc">Applies ReLU activation functions to extract patterns and features. The deeper this layer, the more complex the patterns the agent can learn.</div>
+          <span class="layer-badge">Hidden Layer · 6 neurons · ReLU</span>
+        </div>
+        <div class="layer-info" id="li-2">
+          <div class="layer-title">Layer 3 — Action Neurons</div>
+          <div class="layer-desc">Outputs Q-values — one per possible action. The action with the highest Q-value is selected as the agent's decision.</div>
+          <span class="layer-badge">Output Layer · 4 neurons · Q-Values</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── 8 PHASES ───────────────────────────────────────────────────────────── -->
+<section id="phases" class="section">
+  <div class="container">
+    <p class="section-label" data-animate>Interactive Explorer</p>
+    <h2 class="section-title" data-animate>The 8 Learning Phases</h2>
+    <p class="section-desc" data-animate>Click each phase to explore the full narrated explanation. These phases repeat every episode, making the agent smarter over time.</p>
+    <div class="phases-layout">
+      <!-- Nav -->
+      <div class="phases-nav" id="phases-nav">
+        <button class="phase-btn active" data-phase="0" style="--phase-color:#00e5ff">
+          <span class="phase-num">①</span>
+          <span class="phase-btn-label">Observe</span>
+        </button>
+        <button class="phase-btn" data-phase="1" style="--phase-color:#88ddff">
+          <span class="phase-num">②</span>
+          <span class="phase-btn-label">Process</span>
+        </button>
+        <button class="phase-btn" data-phase="2" style="--phase-color:#ffaa00">
+          <span class="phase-num">③</span>
+          <span class="phase-btn-label">Act</span>
+        </button>
+        <button class="phase-btn" data-phase="3" style="--phase-color:#39ff14">
+          <span class="phase-num">④</span>
+          <span class="phase-btn-label">Reward</span>
+        </button>
+        <button class="phase-btn" data-phase="4" style="--phase-color:#bf5fff">
+          <span class="phase-num">⑤</span>
+          <span class="phase-btn-label">Store</span>
+        </button>
+        <button class="phase-btn" data-phase="5" style="--phase-color:#ff9944">
+          <span class="phase-num">⑥</span>
+          <span class="phase-btn-label">Learn</span>
+        </button>
+        <button class="phase-btn" data-phase="6" style="--phase-color:#39ff14">
+          <span class="phase-num">⑦</span>
+          <span class="phase-btn-label">Update</span>
+        </button>
+        <button class="phase-btn" data-phase="7" style="--phase-color:#aaffaa">
+          <span class="phase-num">⑧</span>
+          <span class="phase-btn-label">Converge</span>
+        </button>
+      </div>
+
+      <!-- Content panels -->
+      <div class="phase-content" id="phase-content">
+
+        <!-- Phase 0: Observe -->
+        <div class="phase-panel active" data-panel="0" style="--panel-color:#00e5ff">
+          <div class="phase-header">
+            <div class="phase-icon-big">👁</div>
+            <div>
+              <div class="phase-panel-subtitle">Phase 01 · Input</div>
+              <div class="phase-panel-title">OBSERVE — Environment → Perception Neurons</div>
+            </div>
+          </div>
+          <div class="phase-body">
+            <p>Every learning cycle begins with <strong>observation</strong>. The agent looks at the world — or more precisely, it receives a structured representation of the world called the <strong>state</strong>.</p>
+            <p>In the animation, a cyan pulse travels from the Environment box into the Perception Neurons. This represents the state being fed into the network. The neurons light up as they receive this data.</p>
+            <div class="phase-callout">
+              <div class="phase-callout-label">Key Insight</div>
+              Designing a good state representation is one of the most important — and most underestimated — decisions in building an AI agent. If your state does not include the right information, the agent cannot learn the right behaviour, no matter how powerful the network.
+            </div>
+            <p>In practice, this input might be pixels from a camera, sensor readings from a device, text tokens from a user message, or structured data from a database. Whatever the agent can <em>observe</em>, it enters here.</p>
+            <div class="phase-tags">
+              <span class="tag">State Space</span>
+              <span class="tag">Feature Engineering</span>
+              <span class="tag">Observation Design</span>
+              <span class="tag">Input Encoding</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phase 1: Process -->
+        <div class="phase-panel" data-panel="1" style="--panel-color:#88ddff">
+          <div class="phase-header">
+            <div class="phase-icon-big">⚙️</div>
+            <div>
+              <div class="phase-panel-subtitle">Phase 02 · Computation</div>
+              <div class="phase-panel-title">PROCESS — Forward Pass Through Policy Network</div>
+            </div>
+          </div>
+          <div class="phase-body">
+            <p>Once the state enters the network, it flows forward through all three layers in what we call a <strong>forward pass</strong>. Each neuron receives weighted inputs from the previous layer, applies its activation function, and passes the result forward.</p>
+            <p>The neurons light up sequentially — Perception, then Hidden, then Action. The connection lines between them glow as data flows through. This entire process happens in <strong>milliseconds</strong> in a real system.</p>
+            <div class="phase-callout">
+              <div class="phase-callout-label">What is ReLU?</div>
+              ReLU (Rectified Linear Unit) is the activation function: f(x) = max(0, x). It introduces non-linearity, allowing the network to learn complex patterns. Without it, the entire network would collapse into a single linear transformation — incapable of learning anything interesting.
+            </div>
+            <p>The output of this forward pass is a set of <strong>Q-values</strong> — one number per possible action. The agent is essentially asking itself: <em>"Given what I see right now, which action do I believe will lead to the best outcome?"</em></p>
+            <div class="phase-formula">f(x) = max(0, Wx + b) &nbsp;·&nbsp; ReLU Activation</div>
+            <div class="phase-tags">
+              <span class="tag">Forward Pass</span>
+              <span class="tag">ReLU</span>
+              <span class="tag">Q-Values</span>
+              <span class="tag">Weighted Sum</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phase 2: Act -->
+        <div class="phase-panel" data-panel="2" style="--panel-color:#ffaa00">
+          <div class="phase-header">
+            <div class="phase-icon-big">🎯</div>
+            <div>
+              <div class="phase-panel-subtitle">Phase 03 · Decision</div>
+              <div class="phase-panel-title">ACT — Action Neurons → Environment</div>
+            </div>
+          </div>
+          <div class="phase-body">
+            <p>The agent now <strong>acts</strong>. It selects the action with the highest Q-value and executes it in the environment.</p>
+            <div class="phase-callout">
+              <div class="phase-callout-label">ε-Greedy Exploration</div>
+              Early in training, the agent does not always pick the best-known action. It uses ε-greedy exploration — where ε (epsilon) is a probability of choosing a random action instead of the best-known one. This is intentional: if the agent always exploits what it knows, it will never discover better strategies.
+            </div>
+            <p>As training progresses, epsilon decreases. The agent explores less and exploits more, because it has built up enough knowledge to make reliable decisions.</p>
+            <p><strong>Analogy:</strong> Think of a new employee who always does things the way they were taught on day one. They will never discover a more efficient process unless they occasionally try something different. Exploration is how agents — and people — grow.</p>
+            <div class="phase-formula">action = argmax(Q(s,a)) &nbsp;with prob. (1-ε) &nbsp;·&nbsp; ε-Greedy</div>
+            <div class="phase-tags">
+              <span class="tag">ε-Greedy</span>
+              <span class="tag">Exploration vs Exploitation</span>
+              <span class="tag">Action Selection</span>
+              <span class="tag">Softmax Policy</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phase 3: Reward -->
+        <div class="phase-panel" data-panel="3" style="--panel-color:#39ff14">
+          <div class="phase-header">
+            <div class="phase-icon-big">🏆</div>
+            <div>
+              <div class="phase-panel-subtitle">Phase 04 · Feedback</div>
+              <div class="phase-panel-title">REWARD — Environment Returns the Reward Signal</div>
+            </div>
+          </div>
+          <div class="phase-body">
+            <p>After acting, the environment responds with a <strong>reward</strong> — a numerical score that tells the agent how good or bad its action was.</p>
+            <p>The reward signal is the most powerful — and most dangerous — component of the entire system. It is powerful because it is the only feedback the agent receives. It is dangerous because <strong>agents are extraordinarily good at optimising exactly what you measure</strong>, even if that is not what you actually want.</p>
+            <div class="phase-callout">
+              <div class="phase-callout-label">Goodhart's Law in AI</div>
+              "When a measure becomes a target, it ceases to be a good measure." If you reward a customer service agent purely on call resolution speed, it will learn to hang up on customers quickly. If you reward it on satisfaction scores, it will learn to actually solve problems. The reward function <em>is</em> your policy.
+            </div>
+            <p>Designing a good reward function is arguably the <strong>most important skill</strong> in building a good AI agent.</p>
+            <div class="phase-tags">
+              <span class="tag">Reward Engineering</span>
+              <span class="tag">Goodhart's Law</span>
+              <span class="tag">Reward Hacking</span>
+              <span class="tag">Sparse vs Dense Rewards</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phase 4: Store -->
+        <div class="phase-panel" data-panel="4" style="--panel-color:#bf5fff">
+          <div class="phase-header">
+            <div class="phase-icon-big">💾</div>
+            <div>
+              <div class="phase-panel-subtitle">Phase 05 · Memory</div>
+              <div class="phase-panel-title">STORE — Experience → Memory / Replay Buffer</div>
+            </div>
+          </div>
+          <div class="phase-body">
+            <p>After each action-reward cycle, the agent stores the entire experience as a tuple:</p>
+            <div class="phase-formula">(state, action, reward, next_state) &nbsp;→&nbsp; Replay Buffer</div>
+            <p>The Replay Buffer serves two critical purposes. First, it allows the agent to <strong>learn from past experiences</strong> rather than only the most recent one. Second, it <strong>breaks the correlation</strong> between consecutive training samples — a problem that would otherwise cause the network to overfit to recent events and forget earlier learning.</p>
+            <div class="phase-callout">
+              <div class="phase-callout-label">Why Randomness Matters</div>
+              Without a replay buffer, an agent trained on a sequence of similar states would essentially "forget" how to handle states it has not seen recently. The buffer ensures diversity in training data, which is essential for generalisation. Random sampling from the buffer is not an accident — it is a deliberate design choice.
+            </div>
+            <div class="phase-tags">
+              <span class="tag">Experience Replay</span>
+              <span class="tag">Replay Buffer</span>
+              <span class="tag">Temporal Correlation</span>
+              <span class="tag">Mini-Batch Sampling</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phase 5: Learn -->
+        <div class="phase-panel" data-panel="5" style="--panel-color:#ff9944">
+          <div class="phase-header">
+            <div class="phase-icon-big">🔬</div>
+            <div>
+              <div class="phase-panel-subtitle">Phase 06 · Backpropagation</div>
+              <div class="phase-panel-title">LEARN — Sample Replay Buffer → Backpropagation</div>
+            </div>
+          </div>
+          <div class="phase-body">
+            <p>This is where the actual <strong>learning</strong> happens. A random mini-batch of experiences is sampled from the Replay Buffer. For each experience, the agent computes the <strong>Temporal Difference (TD) error</strong> using the Bellman equation:</p>
+            <div class="phase-formula">TD Error = r + γ · max(Q(s',a')) − Q(s,a)</div>
+            <p>Where <strong>r</strong> is the reward received, <strong>γ (gamma)</strong> is the discount factor, <strong>Q(s',a')</strong> is the estimated Q-value of the best action in the next state, and <strong>Q(s,a)</strong> is the current Q-value estimate.</p>
+            <div class="phase-callout">
+              <div class="phase-callout-label">The Bellman Equation</div>
+              The TD error measures how wrong the agent's prediction was. This error is then propagated backward through the network — adjusting the weights of every connection to reduce the error. This is backpropagation: the engine of all neural network learning.
+            </div>
+            <div class="phase-tags">
+              <span class="tag">Bellman Equation</span>
+              <span class="tag">TD Error</span>
+              <span class="tag">Backpropagation</span>
+              <span class="tag">Discount Factor γ</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phase 6: Update -->
+        <div class="phase-panel" data-panel="6" style="--panel-color:#39ff14">
+          <div class="phase-header">
+            <div class="phase-icon-big">⚡</div>
+            <div>
+              <div class="phase-panel-subtitle">Phase 07 · Optimisation</div>
+              <div class="phase-panel-title">UPDATE — Weights Refined via Gradient Descent</div>
+            </div>
+          </div>
+          <div class="phase-body">
+            <p>The weight update is performed by an <strong>optimizer</strong> — typically <strong>Adam (Adaptive Moment Estimation)</strong> in modern AI systems. The update rule is:</p>
+            <div class="phase-formula">W ← W − η · ∇Q &nbsp;&nbsp;(Adam Optimizer)</div>
+            <p>Where <strong>W</strong> is the current weight, <strong>η (eta)</strong> is the learning rate — how large a step to take — and <strong>∇Q</strong> is the gradient — the direction of steepest error.</p>
+            <div class="phase-callout">
+              <div class="phase-callout-label">Synaptic Plasticity</div>
+              Think of this as the digital equivalent of synaptic plasticity — the biological principle that neurons that fire together, wire together. Connections that led to good outcomes are strengthened; those that led to poor outcomes are weakened. The learning rate is one of the most sensitive hyperparameters: too high and the agent overshoots; too low and training takes forever.
+            </div>
+            <div class="phase-tags">
+              <span class="tag">Adam Optimizer</span>
+              <span class="tag">Learning Rate η</span>
+              <span class="tag">Gradient Descent</span>
+              <span class="tag">Synaptic Plasticity</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phase 7: Converge -->
+        <div class="phase-panel" data-panel="7" style="--panel-color:#aaffaa">
+          <div class="phase-header">
+            <div class="phase-icon-big">✅</div>
+            <div>
+              <div class="phase-panel-subtitle">Phase 08 · Convergence</div>
+              <div class="phase-panel-title">CONVERGE — Agent Improves Over Episodes</div>
+            </div>
+          </div>
+          <div class="phase-body">
+            <p>After enough episodes, the agent <strong>converges</strong> — its Q-values stabilise, its loss decreases, and its behaviour becomes consistently good.</p>
+            <p>The Q-value curve rises as the agent learns to earn more reward. The loss curve falls as the agent's predictions become more accurate. These two curves moving in opposite directions are the signature of a <strong>healthy, learning agent</strong>.</p>
+            <div class="phase-callout">
+              <div class="phase-callout-label">The Loop Never Ends</div>
+              The best AI agents are not deployed and forgotten. They are continuously monitored, retrained, and refined — just like the animation loops, episode after episode, always improving. Convergence is not a destination; it is a moving target as the environment and requirements evolve.
+            </div>
+            <p>Watch the agent's movement in the environment become tighter and more deliberate over episodes — less random exploration, more confident exploitation of learned strategies.</p>
+            <div class="phase-tags">
+              <span class="tag">Convergence</span>
+              <span class="tag">Continuous Learning</span>
+              <span class="tag">Model Monitoring</span>
+              <span class="tag">Retraining</span>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /phase-content -->
+    </div><!-- /phases-layout -->
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── LIVE CHARTS ────────────────────────────────────────────────────────── -->
+<section id="chart-section" class="section">
+  <div class="container">
+    <p class="section-label" data-animate>Live Simulation</p>
+    <h2 class="section-title" data-animate>Q-Value & Loss Curves</h2>
+    <p class="section-desc" data-animate>Watch the agent learn in real time. Q-values rise as the agent earns more reward; loss falls as predictions become more accurate.</p>
+    <div class="chart-grid">
+      <div class="chart-card" data-animate>
+        <div class="chart-title cyan">Q-Value Curve — Rising</div>
+        <div class="chart-canvas-wrap">
+          <canvas id="q-chart" class="chart"></canvas>
+        </div>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>Q-Value (avg)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--cyan)"></div>Target Q</div>
+        </div>
+      </div>
+      <div class="chart-card" data-animate>
+        <div class="chart-title red">Loss Curve — Falling</div>
+        <div class="chart-canvas-wrap">
+          <canvas id="loss-chart" class="chart"></canvas>
+        </div>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Training Loss</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--pink)"></div>Validation Loss</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── THREE PILLARS ──────────────────────────────────────────────────────── -->
+<section id="pillars" class="section">
+  <div class="container">
+    <p class="section-label" data-animate>Core Principles</p>
+    <h2 class="section-title" data-animate>The Three Pillars of a Good AI Agent</h2>
+    <p class="section-desc" data-animate>The quality of your agent depends on three foundational pillars. Neglect any one of them and the entire system suffers.</p>
+    <div class="pillars-grid">
+      <div class="pillar-card" data-animate>
+        <div class="pillar-num">01</div>
+        <div class="pillar-icon">⚡</div>
+        <div class="pillar-title">Reward Function Design</div>
+        <div class="pillar-desc">Your reward function is your agent's constitution. It defines what "good" means. If it is misaligned with your actual goals, the agent will optimise for the wrong thing — perfectly, efficiently, and at scale. Invest serious time in reward engineering before writing a single line of network code.</div>
+        <div class="pillar-risk">Reward hacking, misaligned behaviour</div>
+      </div>
+      <div class="pillar-card" data-animate>
+        <div class="pillar-num">02</div>
+        <div class="pillar-icon">💾</div>
+        <div class="pillar-title">Memory Architecture</div>
+        <div class="pillar-desc">An agent without memory is an agent that cannot learn from experience. The Replay Buffer is the minimum viable memory. More advanced agents use episodic memory, working memory, and long-term knowledge stores — architectures that mirror human cognitive systems.</div>
+        <div class="pillar-risk">Forgetting, poor generalisation</div>
+      </div>
+      <div class="pillar-card" data-animate>
+        <div class="pillar-num">03</div>
+        <div class="pillar-icon">🧠</div>
+        <div class="pillar-title">Policy Network Architecture</div>
+        <div class="pillar-desc">The network is the agent's reasoning engine. Its depth, width, and activation functions determine the complexity of patterns it can learn. For language-based agents, this is a Transformer. For vision-based agents, a CNN. Matching the architecture to the task is essential.</div>
+        <div class="pillar-risk">Underfitting, incapacity for complex tasks</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── GLOSSARY ────────────────────────────────────────────────────────────── -->
+<section id="glossary" class="section">
+  <div class="container">
+    <p class="section-label" data-animate>Reference</p>
+    <h2 class="section-title" data-animate>Key Terms Glossary</h2>
+    <p class="section-desc" data-animate>Essential vocabulary for understanding neuron-based learning and AI agent systems.</p>
+    <div class="glossary-grid" id="glossary-grid">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── FOOTER ─────────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-brand">AI/AGENT LEARNING</div>
+  <div class="footer-credit">Prepared by Manus AI &nbsp;·&nbsp; Gaby | Regional IT Director &amp; Innovation &nbsp;·&nbsp; March 2026</div>
+</footer>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════════════════════════════════ -->
+<script>
+// ── SCROLL REVEAL ──────────────────────────────────────────────────────────
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach((e, i) => {
+    if (e.isIntersecting) {
+      setTimeout(() => e.target.classList.add('visible'), i * 80);
+    }
+  });
+}, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+document.querySelectorAll('[data-animate]').forEach(el => observer.observe(el));
+
+// ── STICKY NAV ─────────────────────────────────────────────────────────────
+window.addEventListener('scroll', () => {
+  document.getElementById('main-nav').classList.toggle('scrolled', scrollY > 60);
+  const prog = (scrollY / (document.body.scrollHeight - innerHeight)) * 100;
+  document.getElementById('progress-bar').style.width = prog + '%';
+}, { passive: true });
+
+// ── NEURAL CANVAS BACKGROUND ───────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('neural-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, nodes = [], frame = 0;
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', () => { resize(); initNodes(); });
+
+  function initNodes() {
+    nodes = [];
+    const count = Math.floor((W * H) / 18000);
+    for (let i = 0; i < count; i++) {
+      nodes.push({
+        x: Math.random() * W, y: Math.random() * H,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        r: Math.random() * 2 + 1,
+        pulse: Math.random() * Math.PI * 2
+      });
+    }
+  }
+  initNodes();
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    frame++;
+    nodes.forEach(n => {
+      n.x += n.vx; n.y += n.vy;
+      if (n.x < 0 || n.x > W) n.vx *= -1;
+      if (n.y < 0 || n.y > H) n.vy *= -1;
+      n.pulse += 0.02;
+      const alpha = 0.4 + 0.3 * Math.sin(n.pulse);
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(0,229,255,${alpha})`;
+      ctx.fill();
+    });
+    // Connections
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[i].x - nodes[j].x;
+        const dy = nodes[i].y - nodes[j].y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 120) {
+          const alpha = (1 - dist / 120) * 0.25;
+          ctx.beginPath();
+          ctx.moveTo(nodes[i].x, nodes[i].y);
+          ctx.lineTo(nodes[j].x, nodes[j].y);
+          ctx.strokeStyle = `rgba(0,229,255,${alpha})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ── POLICY NETWORK CANVAS ──────────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('network-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, frame = 0, activeLayer = -1, signalT = 0, signalLayer = 0;
+
+  const LAYERS = [
+    { n: 4, label: 'Perception', color: '#00e5ff' },
+    { n: 6, label: 'Hidden',     color: '#bf5fff' },
+    { n: 4, label: 'Action',     color: '#ffaa00' }
+  ];
+
+  function resize() {
+    const wrap = document.getElementById('network-canvas-wrap');
+    W = canvas.width  = wrap.clientWidth;
+    H = canvas.height = wrap.clientHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function getPos(li, ni) {
+    const lx = (li + 1) * W / (LAYERS.length + 1);
+    const ly = (ni + 1) * H / (LAYERS[li].n + 1);
+    return { x: lx, y: ly };
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    frame++;
+    signalT += 0.012;
+    if (signalT > 1) { signalT = 0; signalLayer = (signalLayer + 1) % (LAYERS.length - 1); }
+
+    // Draw connections
+    for (let li = 0; li < LAYERS.length - 1; li++) {
+      for (let ni = 0; ni < LAYERS[li].n; ni++) {
+        for (let nj = 0; nj < LAYERS[li+1].n; nj++) {
+          const p1 = getPos(li, ni);
+          const p2 = getPos(li+1, nj);
+          const isActive = li === signalLayer;
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.strokeStyle = isActive
+            ? `rgba(0,229,255,${0.1 + 0.25 * signalT})`
+            : 'rgba(30,30,80,0.6)';
+          ctx.lineWidth = isActive ? 1 : 0.5;
+          ctx.stroke();
+
+          // Travelling signal dot
+          if (isActive) {
+            const tx = p1.x + (p2.x - p1.x) * signalT;
+            const ty = p1.y + (p2.y - p1.y) * signalT;
+            if (ni === 0 && nj === 0) {
+              ctx.beginPath();
+              ctx.arc(tx, ty, 3, 0, Math.PI * 2);
+              ctx.fillStyle = 'rgba(0,229,255,0.9)';
+              ctx.fill();
+            }
+          }
+        }
+      }
+    }
+
+    // Draw neurons
+    LAYERS.forEach((layer, li) => {
+      for (let ni = 0; ni < layer.n; ni++) {
+        const { x, y } = getPos(li, ni);
+        const pulse = 0.5 + 0.5 * Math.sin(frame * 0.04 + ni * 0.8 + li * 1.5);
+        const isSignalLayer = li <= signalLayer;
+        const r = 10 + (isSignalLayer ? 3 * pulse : 0);
+
+        // Glow
+        if (isSignalLayer) {
+          const grad = ctx.createRadialGradient(x, y, 0, x, y, r * 2.5);
+          grad.addColorStop(0, layer.color + '55');
+          grad.addColorStop(1, 'transparent');
+          ctx.beginPath();
+          ctx.arc(x, y, r * 2.5, 0, Math.PI * 2);
+          ctx.fillStyle = grad;
+          ctx.fill();
+        }
+
+        // Circle
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fillStyle = isSignalLayer ? '#0f0f2e' : '#080820';
+        ctx.fill();
+        ctx.strokeStyle = isSignalLayer ? layer.color : '#2a2a60';
+        ctx.lineWidth = isSignalLayer ? 2 : 1;
+        ctx.stroke();
+
+        // Inner dot
+        if (isSignalLayer) {
+          ctx.beginPath();
+          ctx.arc(x, y, r * 0.35 * pulse, 0, Math.PI * 2);
+          ctx.fillStyle = layer.color;
+          ctx.fill();
+        }
+      }
+    });
+
+    // Layer labels
+    LAYERS.forEach((layer, li) => {
+      const lx = (li + 1) * W / (LAYERS.length + 1);
+      ctx.fillStyle = layer.color;
+      ctx.font = `600 ${Math.max(9, W * 0.012)}px 'Rajdhani', sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(layer.label, lx, H - 10);
+    });
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  // Click to highlight layer
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (W / rect.width);
+    LAYERS.forEach((layer, li) => {
+      const lx = (li + 1) * W / (LAYERS.length + 1);
+      if (Math.abs(mx - lx) < W / (LAYERS.length + 1) / 2) {
+        document.querySelectorAll('.layer-info').forEach((el, i) => {
+          el.classList.toggle('active', i === li);
+        });
+      }
+    });
+  });
+})();
+
+// ── PHASE SWITCHER ─────────────────────────────────────────────────────────
+document.querySelectorAll('.phase-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const idx = btn.dataset.phase;
+    document.querySelectorAll('.phase-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.phase-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelector(`.phase-panel[data-panel="${idx}"]`).classList.add('active');
+  });
+});
+
+// ── LIVE CHARTS ────────────────────────────────────────────────────────────
+(function() {
+  const qCanvas    = document.getElementById('q-chart');
+  const lossCanvas = document.getElementById('loss-chart');
+  const qCtx       = qCanvas.getContext('2d');
+  const lCtx       = lossCanvas.getContext('2d');
+  let frame = 0;
+  const MAX_PTS = 80;
+  const qData = [], tqData = [], lData = [], vlData = [];
+
+  function ease(t) { return t * t * (3 - 2 * t); }
+
+  function resizeCharts() {
+    [qCanvas, lossCanvas].forEach(c => {
+      const wrap = c.parentElement;
+      c.width  = wrap.clientWidth;
+      c.height = wrap.clientHeight;
+    });
+  }
+  resizeCharts();
+  window.addEventListener('resize', resizeCharts);
+
+  function drawLine(ctx, data, color, W, H, minV, maxV) {
+    if (data.length < 2) return;
+    ctx.beginPath();
+    data.forEach((v, i) => {
+      const x = (i / (MAX_PTS - 1)) * W;
+      const y = H - ((v - minV) / (maxV - minV)) * H * 0.85 - H * 0.05;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Fill under
+    ctx.lineTo((data.length - 1) / (MAX_PTS - 1) * W, H);
+    ctx.lineTo(0, H);
+    ctx.closePath();
+    ctx.fillStyle = color.replace(')', ',0.08)').replace('rgb', 'rgba');
+    ctx.fill();
+  }
+
+  function tick() {
+    frame++;
+    const t = Math.min(frame / 300, 1);
+    const noise = () => (Math.random() - 0.5) * 0.06;
+
+    qData.push(0.05 + ease(t) * 0.85 + noise());
+    tqData.push(0.15 + ease(t) * 0.75 + noise() * 0.5);
+    lData.push(1.0 - ease(t) * 0.88 + Math.abs(noise()));
+    vlData.push(0.95 - ease(t) * 0.80 + Math.abs(noise()) * 1.2);
+
+    if (qData.length > MAX_PTS)  { qData.shift(); tqData.shift(); }
+    if (lData.length > MAX_PTS)  { lData.shift();  vlData.shift(); }
+
+    // Q Chart
+    const qW = qCanvas.width, qH = qCanvas.height;
+    qCtx.clearRect(0, 0, qW, qH);
+    drawLine(qCtx, qData,  '#ffaa00', qW, qH, 0, 1.1);
+    drawLine(qCtx, tqData, '#00e5ff', qW, qH, 0, 1.1);
+
+    // Loss Chart
+    const lW = lossCanvas.width, lH = lossCanvas.height;
+    lCtx.clearRect(0, 0, lW, lH);
+    drawLine(lCtx, lData,  '#ff3131', lW, lH, 0, 1.1);
+    drawLine(lCtx, vlData, '#ff6ec7', lW, lH, 0, 1.1);
+
+    setTimeout(tick, 120);
+  }
+  tick();
+})();
+
+// ── GLOSSARY ───────────────────────────────────────────────────────────────
+const glossaryTerms = [
+  { term: 'Q-Value',            def: 'The estimated total future reward for taking a given action in a given state.' },
+  { term: 'Policy',             def: 'The agent\'s strategy — a mapping from states to actions.' },
+  { term: 'Reward Function',    def: 'A mathematical function that assigns a score to each action taken by the agent.' },
+  { term: 'Replay Buffer',      def: 'A memory store of past (state, action, reward, next_state) tuples used for training.' },
+  { term: 'Backpropagation',    def: 'The algorithm that computes gradients and propagates error backward through the network.' },
+  { term: 'TD Error',           def: 'Temporal Difference error — the gap between predicted and actual Q-values.' },
+  { term: 'ε-Greedy',           def: 'An exploration strategy that randomly explores with probability ε and exploits otherwise.' },
+  { term: 'Learning Rate (η)',  def: 'The step size used by the optimizer when updating weights. Too high = overshoot. Too low = slow.' },
+  { term: 'Discount Factor (γ)',def: 'Controls how much the agent values future vs. immediate rewards (0 = myopic, 1 = far-sighted).' },
+  { term: 'Convergence',        def: 'The state where the agent\'s loss stabilises and Q-values stop improving significantly.' },
+  { term: 'Catastrophic Forgetting', def: 'The tendency of a neural network to forget previously learned information when trained on new data.' },
+  { term: 'Synaptic Plasticity',def: 'The biological principle that connections between neurons strengthen or weaken based on use — the inspiration for weight updates.' },
+];
+
+const grid = document.getElementById('glossary-grid');
+glossaryTerms.forEach((item, i) => {
+  const div = document.createElement('div');
+  div.className = 'glossary-item';
+  div.setAttribute('data-animate', '');
+  div.innerHTML = `<div class="glossary-term">${item.term}</div><div class="glossary-def">${item.def}</div>`;
+  grid.appendChild(div);
+  observer.observe(div);
+});
+</script>
+</body>
+</html>
